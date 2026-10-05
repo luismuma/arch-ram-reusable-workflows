@@ -65,18 +65,18 @@ jobs:
               exit 1
             fi
 
-  get-token:
-    name: Generate centralized GitHub Tokens
-    needs: init
-    if: needs.init.outputs.centralized-tokens == 'true' 
-    uses: mapfre-tech/action-ci-token/.github/workflows/get-token.yml@v1
-    with:
-      profile: ${{ inputs.profile }}
-      include-platform-repos: true
-      platform-repo: ${{ inputs.platform-repo }}
-      repositories: ${{ inputs.repositories }}
-    secrets:
-      GH_TOKEN_ENCRYPTION_PASSPHRASE: ${{ secrets.GH_TOKEN_ENCRYPTION_PASSPHRASE }}
+#  get-token:
+#   name: Generate centralized GitHub Tokens
+#    needs: init
+#    if: needs.init.outputs.centralized-tokens == 'true' 
+#    uses: mapfre-tech/action-ci-token/.github/workflows/get-token.yml@v1
+#    with:
+#      profile: ${{ inputs.profile }}
+#      include-platform-repos: true
+#      platform-repo: ${{ inputs.platform-repo }}
+#      repositories: ${{ inputs.repositories }}
+#   secrets:
+#     GH_TOKEN_ENCRYPTION_PASSPHRASE: ${{ secrets.GH_TOKEN_ENCRYPTION_PASSPHRASE }}
   
      
      
