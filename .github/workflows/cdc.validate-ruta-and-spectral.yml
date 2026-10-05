@@ -1,0 +1,188 @@
+# Copyright (c) MAPFRE DevOps Platform
+#
+# Reusable workflow:
+# - Ejecuta los tests de templating RTUA.
+# - Valida ficheros YAML contra reglas estructurales de Spectral.
+
+name: Validate RTUA and Spectral
+
+on:
+  workflow_call:
+    inputs:
+      manifest-file:
+        description: 'Manifest file used by RTUA tests'
+        required: false
+        type: string
+        default: 'project-manifest.json'
+
+      templating-test:
+        description: 'Ruta al fichero de test de templating RTUA'
+        required: true
+        type: string
+
+      spectral-ruleset:
+        description: 'Ruta al fichero ruleset de Spectral'
+        required: true
+        type: string
+
+      spectral-files:
+        description: 'Lista de ficheros YAML a validar, uno por línea'
+        required: true
+        type: string
+
+      centralized-tokens:
+        description: 'Indica si el workflow usa tokens centralizados'
+        required: true
+        type: boolean
+
+    secrets:
+      AZURE_ARTIFACTS_USER:
+        description: 'Usuario de Azure Artifacts'
+        required: true
+
+      AZURE_ARTIFACTS_PW:
+        description: 'Password o token de Azure Artifacts'
+        required: true
+
+      GH_GIT_TOKEN:
+        description: 'Token para checkout y acceso autenticado a GitHub'
+        required: false
+
+      GH_TOKEN_ENCRYPTION_PASSPHRASE:
+        description: 'Passphrase para descifrar el token centralizado'
+        required: false
+
+jobs:
+
+  validate-templating:
+    name: Validate ruta templating
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    env:
+      MANIFEST_FILE: ${{ inputs.manifest-file }}
+      CENTRALIZED_TOKENS: ${{ inputs.centralized-tokens }}
+
+      AZURE_ARTIFACTS_USER: ${{ secrets.AZURE_ARTIFACTS_USER }}
+      AZURE_ARTIFACTS_PW: ${{ secrets.AZURE_ARTIFACTS_PW }}
+
+      GH_GIT_TOKEN: ${{ secrets.GH_GIT_TOKEN }}
+      GH_TOKEN_ENCRYPTION_PASSPHRASE: ${{ secrets.GH_TOKEN_ENCRYPTION_PASSPHRASE }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GH_GIT_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |-
+            requirements.txt
+            requirements-dev.txt
+            pyproject.toml
+
+      - name: Install Python dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m pip install --upgrade pip
+
+          if [[ -f "requirements-dev.txt" ]]; then
+            python -m pip install -r requirements-dev.txt
+          elif [[ -f "requirements.txt" ]]; then
+            python -m pip install -r requirements.txt
+          elif [[ -f "pyproject.toml" ]]; then
+            python -m pip install ".[test]"
+          else
+            python -m pip install pytest
+          fi
+
+      - name: Verify ruta test file
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test_file="${{ inputs.templating-test }}"
+
+          if [[ ! -f "${test_file}" ]]; then
+            echo "::error file=${test_file}::No existe el fichero de test RTUA."
+            exit 1
+          fi
+
+      - name: Run ruta templating test
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m pytest "${{ inputs.templating-test }}" \
+            --verbose \
+            --tb=short
+
+  validate-spectral:
+    name: Validate YAML structure with Spectral
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GH_GIT_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Install Spectral CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          npm install --no-save @stoplight/spectral-cli
+
+      - name: Verify Spectral ruleset
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ruleset="${{ inputs.spectral-ruleset }}"
+
+          if [[ ! -f "${ruleset}" ]]; then
+            echo "::error file=${ruleset}::No se ha encontrado el ruleset de Spectral."
+            exit 1
+          fi
+
+      - name: Validate YAML files with Spectral
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ruleset="${{ inputs.spectral-ruleset }}"
+          files="${{ inputs.spectral-files }}"
+
+          while IFS= read -r file; do
+            [[ -z "${file}" ]] && continue
+
+            if [[ ! -f "${file}" ]]; then
+              echo "::error file=${file}::No existe el fichero YAML a validar."
+              exit 1
+            fi
+
+            echo "Validando '${file}' con el ruleset '${ruleset}'..."
+
+            npx --no-install spectral lint \
+              --ruleset "${ruleset}" \
+              "${file}"
+          done <<< "${files}"
