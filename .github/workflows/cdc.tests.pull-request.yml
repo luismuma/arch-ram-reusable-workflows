@@ -12,67 +12,106 @@
 name: PR workflow
 run-name: "Build and Test #${{ github.run_number }}: ${{ github.event.pull_request.title }}"
 
-on:  
+on:
   workflow_call:
     inputs:
       manifest-file:
         description: 'Manifest file'
         required: false
         type: string
-        default: 'project-manifest.json'      
+        default: 'project-manifest.json'
+
     secrets:
       AZURE_ARTIFACTS_USER:
-        description: 'User Azure Artifacts' 
+        description: 'User Azure Artifacts'
         required: true
+
       AZURE_ARTIFACTS_PW:
-        description: 'Password Azure Artifacts' 
+        description: 'Password Azure Artifacts'
         required: true
+
       GH_GIT_TOKEN:
         description: 'GitHub Token for checking out the code'
         required: false
+
       GH_TOKEN_ENCRYPTION_PASSPHRASE:
         description: 'Passphrase for decrypting the GitHub token'
         required: false
 
 jobs:
-  
+
   log-inicio:
-    if: ( contains(github.event.pull_request.head.ref, 'feature/') || contains(github.event.pull_request.head.ref, 'hotfix/') )
+    if: >-
+      contains(github.event.pull_request.head.ref, 'feature/') ||
+      contains(github.event.pull_request.head.ref, 'hotfix/')
     runs-on: ubuntu-latest
+
     steps:
       - name: Imprimir mensaje por pantalla
         run: echo "🚀 Iniciando la generación de tokens centralizados..."
 
-  # Generate centralized tokens if needed
+  # Genera tokens centralizados únicamente para ramas feature/* y hotfix/*
   token-generate:
-   if: ( contains(github.event.pull_request.head.ref, 'feature/') || contains(github.event.pull_request.head.ref, 'hotfix/') )
-   uses: ./.github/workflows/token-generate.yml 
-   with:
-      profile: 'reader'
-   secrets:
+    if: >-
+      contains(github.event.pull_request.head.ref, 'feature/') ||
+      contains(github.event.pull_request.head.ref, 'hotfix/')
+    uses: ./.github/workflows/token-generate.yml
+
+    with:
+      profile: reader
+
+    secrets:
       EXTERNAL_GITHUB_TOKEN: ${{ secrets.GH_GIT_TOKEN }}
       GH_TOKEN_ENCRYPTION_PASSPHRASE: ${{ secrets.GH_TOKEN_ENCRYPTION_PASSPHRASE }}
 
-  init:
-     needs: token-generate
-     uses: ./.github/workflows/validate-workflow.yml
-     with:
-        workflow_file: 'pull-request.yml'
-        schema: 'db.relational.pull-request.schema.yml'
-        centralized-tokens: ${{ fromJson(needs.token-generate.outputs.centralized-tokens) }}
-     secrets:
-        GH_GIT_TOKEN: ${{ needs.token-generate.outputs.platform-token || secrets.GH_GIT_TOKEN }}
-        GH_TOKEN_ENCRYPTION_PASSPHRASE: ${{ secrets.GH_TOKEN_ENCRYPTION_PASSPHRASE }}
+  # Valida RTUA y la estructura de los YAML mediante Spectral.
+  # El uso de always() permite continuar cuando token-generate se omite
+  # para ramas distintas de feature/* y hotfix/*.
+  # No continúa si token-generate debía ejecutarse y ha fallado.
+  pull-request:
+    needs: token-generate
+    if: >-
+      always() &&
+      (
+        needs.token-generate.result == 'success' ||
+        needs.token-generate.result == 'skipped'
+      )
+    uses: ./.github/workflows/validate-ruta-and-spectral.yml
 
-  # Revoke tokens if they were generated in this workflow
+    with:
+      manifest-file: ${{ inputs.manifest-file }}
+      templating-test: tests/tests_templating.py
+      spectral-ruleset: spectral/rules/structure/ruleset.yml
+      # Un fichero por línea
+      spectral-files: |-
+        db_connections.yml
+        application.yml
+        kafka.yml
+
+      # Convierte el output string "true"/"false" a boolean.
+      # Si token-generate fue skipped, utiliza false de forma segura.
+      centralized-tokens: ${{ fromJSON(needs.token-generate.outputs.centralized-tokens || 'false') }}
+
+    secrets:
+      AZURE_ARTIFACTS_USER: ${{ secrets.AZURE_ARTIFACTS_USER }}
+      AZURE_ARTIFACTS_PW: ${{ secrets.AZURE_ARTIFACTS_PW }}
+
+      # Usa el token temporal si se generó; si no, aplica fallback
+      # al token configurado en el repositorio.
+      GH_GIT_TOKEN: ${{ needs.token-generate.outputs.platform-token || secrets.GH_GIT_TOKEN }}
+      GH_TOKEN_ENCRYPTION_PASSPHRASE: ${{ secrets.GH_TOKEN_ENCRYPTION_PASSPHRASE }}
+
+  # Revoca los tokens centralizados aunque fallen las validaciones.
   revoke-tokens:
-    if: always() && needs.token-generate.outputs.centralized-tokens == 'true'
-    needs: [ pull-request, token-generate ]
+    needs: [pull-request, token-generate]
+    if: >-
+      always() &&
+      needs.token-generate.outputs.centralized-tokens == 'true'
     uses: ./.github/workflows/token-revoke.yml
+
     secrets:
       TOKEN: ${{ needs.token-generate.outputs.token }}
       PLATFORM_TOKEN: ${{ needs.token-generate.outputs.platform-token }}
       GH_TOKEN_ENCRYPTION_PASSPHRASE: ${{ secrets.GH_TOKEN_ENCRYPTION_PASSPHRASE }}
 
 
-   
