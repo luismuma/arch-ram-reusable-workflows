@@ -1,0 +1,46 @@
+# Copyright (c) MAPFRE DevOps Platform
+#
+# Pull Request Workflow. Triggers when:
+#   - A pull request from feature to develop is created / synchronized
+#   - A pull request from hotfix to main is created / synchronized
+#
+# Required secrets:
+#   - AZURE_ARTIFACTS_USER    (Organization)
+#   - AZURE_ARTIFACTS_PW      (Organization)
+#   - GH_GIT_TOKEN            (Repository)
+
+name: PR workflow
+run-name: "Build and Test #${{ github.run_number }}: ${{ github.event.pull_request.title }}"
+
+on:  
+  workflow_call:
+    inputs:
+      manifest-file:
+        description: 'Manifest file'
+        required: false
+        type: string
+        default: 'project-manifest.json'      
+    secrets:
+      AZURE_ARTIFACTS_USER:
+        description: 'User Azure Artifacts' 
+        required: true
+      AZURE_ARTIFACTS_PW:
+        description: 'Password Azure Artifacts' 
+        required: true
+      GH_GIT_TOKEN:
+        description: 'GitHub Token for checking out the code'
+        required: false
+      GH_TOKEN_ENCRYPTION_PASSPHRASE:
+        description: 'Passphrase for decrypting the GitHub token'
+        required: false
+
+jobs:
+
+  # Generate centralized tokens if needed
+  log-inicio:
+    if: ( contains(github.event.pull_request.head.ref, 'feature/') || contains(github.event.pull_request.head.ref, 'hotfix/') )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Imprimir mensaje por pantalla
+        run: echo "🚀 Iniciando la generación de tokens centralizados..."
+   
