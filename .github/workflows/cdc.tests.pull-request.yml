@@ -76,7 +76,7 @@ jobs:
         needs.token-generate.result == 'success' ||
         needs.token-generate.result == 'skipped'
       )
-    uses: ./.github/workflows/validate-ruta-and-spectral.yml
+    uses: ./.github/workflows/cdc.validate-ruta-and-spectral.yml
 
     with:
       manifest-file: ${{ inputs.manifest-file }}
