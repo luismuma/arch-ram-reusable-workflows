@@ -4,7 +4,7 @@
 # - Ejecuta los tests de templating RTUA.
 # - Valida ficheros YAML contra reglas estructurales de Spectral.
 
-name: Validate RTUA and Spectral
+name: Validate Ruta and Spectral
 
 on:
   workflow_call:
@@ -96,14 +96,8 @@ jobs:
 
           python -m pip install --upgrade pip
 
-          if [[ -f "requirements-dev.txt" ]]; then
-            python -m pip install -r requirements-dev.txt
-          elif [[ -f "requirements.txt" ]]; then
-            python -m pip install -r requirements.txt
-          elif [[ -f "pyproject.toml" ]]; then
+          if [[ -f "pyproject.toml" ]]; then
             python -m pip install ".[test]"
-          else
-            python -m pip install pytest
           fi
 
       - name: Verify ruta test file
@@ -138,7 +132,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          token: ${{ secrets.GH_GIT_TOKEN }}
+          #token: ${{ secrets.GH_GIT_TOKEN }}
+          token: ${{ github.token }}
           fetch-depth: 0
 
       - name: Set up Node.js
