@@ -43,4 +43,10 @@ jobs:
     steps:
       - name: Imprimir mensaje por pantalla
         run: echo "🚀 Iniciando la generación de tokens centralizados..."
+  log-fin:
+    if: ( contains(github.event.pull_request.head.ref, 'feature/') || contains(github.event.pull_request.head.ref, 'hotfix/') )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Imprimir mensaje por pantalla
+        run: echo "🚀 Fin de la generación de tokens centralizados..."
    
