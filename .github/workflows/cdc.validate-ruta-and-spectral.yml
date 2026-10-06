@@ -10,7 +10,7 @@ on:
   workflow_call:
     inputs:
       manifest-file:
-        description: 'Manifest file used by RTUA tests'
+        description: 'Manifest file used by Ruta tests'
         required: false
         type: string
         default: 'project-manifest.json'
@@ -106,7 +106,7 @@ jobs:
           test_file="${{ inputs.templating-test }}"
 
           if [[ ! -f "${test_file}" ]]; then
-            echo "::error file=${test_file}::No existe el fichero de test RTUA."
+            echo "::error file=${test_file}::No existe el fichero de test Ruta."
             exit 1
           fi
 
