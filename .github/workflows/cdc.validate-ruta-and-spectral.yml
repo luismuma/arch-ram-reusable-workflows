@@ -16,9 +16,10 @@ on:
         default: 'project-manifest.json'
 
       templating-test:
-        description: 'Ruta al fichero de test de templating RTUA'
+        description: 'Ruta al fichero de test de templating Ruta'
         required: true
         type: string
+        default: 'tests/test-templating.py'
 
       spectral-ruleset:
         description: 'Ruta al fichero ruleset de Spectral'
