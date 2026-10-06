@@ -105,6 +105,8 @@ jobs:
           set -euo pipefail
 
           test_file="${{ inputs.templating-test }}"
+          echo "${pwd}"
+          echo "${test_file}"
 
           if [[ ! -f "${test_file}" ]]; then
             echo "::error file=${test_file}::No existe el fichero de test Ruta."
