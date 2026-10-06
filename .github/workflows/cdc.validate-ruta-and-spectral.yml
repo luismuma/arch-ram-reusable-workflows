@@ -123,69 +123,60 @@ jobs:
             --tb=short
 
   validate-spectral:
-    name: Validate YAML structure with Spectral
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GH_GIT_TOKEN || secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - name: Install Spectral CLI
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          npm install --no-save @stoplight/spectral-cli
-
       - name: Validate YAML files with Spectral
         shell: bash
         run: |
-          set -euo pipefail
-
-          rules_dir="spectral/rules/structure"
-          default_ruleset="${{ inputs.spectral-ruleset }}"
-          files="${{ inputs.spectral-files }}"
-
-          while IFS= read -r file; do
-            [[ -z "${file}" ]] && continue
-
-            if [[ ! -f "${file}" ]]; then
-              echo "::error file=${file}::No existe el fichero YAML a validar."
-              exit 1
+            set -euo pipefail
+  
+            rules_dir="spectral/rules/structure"
+            default_ruleset="${{ inputs.spectral-ruleset }}"
+            raw_files="${{ inputs.spectral-files }}"
+  
+            if [[ -z "${raw_files// /}" ]]; then
+              echo "No se han proporcionado archivos YAML para validar."
+              exit 0
             fi
-
-            # Determina la regla a aplicar basándose en el nombre base del archivo
-            base_name=$(basename "${file}" | cut -d. -f1)
-            target_ruleset=""
-
-            if [[ -f "${rules_dir}/${base_name}.yaml" ]]; then
-              target_ruleset="${rules_dir}/${base_name}.yaml"
-            elif [[ -f "${rules_dir}/${base_name}.yml" ]]; then
-              target_ruleset="${rules_dir}/${base_name}.yml"
-            elif [[ -f "${default_ruleset}" ]]; then
-              target_ruleset="${default_ruleset}"
-            fi
-
-            if [[ -z "${target_ruleset}" ]]; then
-              echo "::error file=${file}::No se encontró un fichero de reglas específico en '${rules_dir}/${base_name}.yaml' ni un ruleset por defecto en '${default_ruleset}'."
-              exit 1
-            fi
-
-            echo "Validando '${file}' con el ruleset '${target_ruleset}'..."
-
-            npx --no-install spectral lint \
-              --ruleset "${target_ruleset}" \
-              --fail-severity=error \
-              "${file}"
-          done <<< "${files}"
+  
+            # 1. Limpiar caracteres de retorno de carro (\r)
+            clean_files=$(echo "${raw_files}" | tr -d '\r')
+  
+            # 2. Expandir comodines y procesar cada línea/archivo
+            while IFS= read -r line; do
+              # Recortar espacios en blanco al inicio y final
+              line=$(echo "${line}" | xargs)
+              [[ -z "${line}" ]] && continue
+  
+              # Expandir comodines si los hay (ej: config-CDC/**/*.yml)
+              for file in ${line}; do
+                if [[ ! -f "${file}" ]]; then
+                  echo "::error file=${file}::No existe el fichero YAML a validar."
+                  exit 1
+                fi
+  
+                # Determina la regla a aplicar basándose en el nombre base del archivo
+                base_name=$(basename "${file}" | cut -d. -f1)
+                target_ruleset=""
+  
+                if [[ -f "${rules_dir}/${base_name}.yaml" ]]; then
+                  target_ruleset="${rules_dir}/${base_name}.yaml"
+                elif [[ -f "${rules_dir}/${base_name}.yml" ]]; then
+                  target_ruleset="${rules_dir}/${base_name}.yml"
+                elif [[ -f "${default_ruleset}" ]]; then
+                  target_ruleset="${default_ruleset}"
+                fi
+  
+                if [[ -z "${target_ruleset}" ]]; then
+                  echo "::error file=${file}::No se encontró un fichero de reglas específico en '${rules_dir}/${base_name}.yaml' ni un ruleset por defecto en '${default_ruleset}'."
+                  exit 1
+                fi
+  
+                echo "Validando '${file}' con el ruleset '${target_ruleset}'..."
+  
+                npx --no-install spectral lint \
+                  --ruleset "${target_ruleset}" \
+                  --fail-severity=error \
+                  "${file}"
+            done
+          done <<< "${clean_files}"
+    
+   
