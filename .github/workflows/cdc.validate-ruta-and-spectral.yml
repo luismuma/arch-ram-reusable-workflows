@@ -19,7 +19,7 @@ on:
         description: 'Ruta al fichero de test de templating Ruta'
         required: false
         type: string
-        default: 'tests/tests-templating.py'
+        default: 'tests/test-templating.py'
 
       spectral-ruleset:
         description: 'Ruta al fichero ruleset de Spectral por defecto o fallback'
