@@ -80,7 +80,7 @@ jobs:
 
     with:
       manifest-file: ${{ inputs.manifest-file }}
-      templating-test: tests/tests-templating.py
+      templating-test: tests/test-templating.py
       spectral-ruleset: spectral/rules/structure/ruleset.yml
       # Un fichero por línea
       spectral-files: |-
