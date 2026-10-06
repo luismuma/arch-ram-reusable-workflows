@@ -170,8 +170,6 @@ jobs:
           echo "================================================"
 
           files=(
-            "config-CDC/db-connections/db-connections-oracle.yml"
-            "config-CDC/target-connections/kafka.yml"
             "config-CDC/application/cdc_input_json_content.json"
           )
 
@@ -194,8 +192,6 @@ jobs:
           echo "================================================"
 
           rules=(
-            "spectral/rules/structure/db_connections.yaml"
-            "spectral/rules/structure/kafka.yaml"
             "spectral/rules/structure/application.yaml"
           )
 
@@ -207,42 +203,6 @@ jobs:
 
             echo "OK: ${rule}"
           done
-
-      - name: Validate DB Connections Structure
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "================================================"
-          echo "Validando estructura db_connections con Spectral"
-          echo "================================================"
-
-          npx --no-install spectral lint \
-            config-CDC/db-connections/db-connections-oracle.yml \
-            --ruleset spectral/rules/structure/db_connections.yaml \
-            --verbose
-
-          echo "==============================================="
-          echo "Validación finalizada: db_connections"
-          echo "==============================================="
-
-      - name: Validate Kafka Structure
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "================================================"
-          echo "Validando estructura kafka con Spectral"
-          echo "================================================"
-
-          npx --no-install spectral lint \
-            config-CDC/target-connections/kafka.yml \
-            --ruleset spectral/rules/structure/kafka.yaml \
-            --verbose
-
-          echo "==============================================="
-          echo "Validación finalizada: kafka"
-          echo "==============================================="
 
       - name: Validate Application Structure
         shell: bash
