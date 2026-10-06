@@ -64,7 +64,7 @@ jobs:
       EXTERNAL_GITHUB_TOKEN: ${{ secrets.GH_GIT_TOKEN }}
       GH_TOKEN_ENCRYPTION_PASSPHRASE: ${{ secrets.GH_TOKEN_ENCRYPTION_PASSPHRASE }}
 
-  # Valida RTUA y la estructura de los YAML mediante Spectral.
+  # Valida Ruta y la estructura de los YAML mediante Spectral.
   # El uso de always() permite continuar cuando token-generate se omite
   # para ramas distintas de feature/* y hotfix/*.
   # No continúa si token-generate debía ejecutarse y ha fallado.
