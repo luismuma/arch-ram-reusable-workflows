@@ -17,14 +17,15 @@ on:
 
       templating-test:
         description: 'Ruta al fichero de test de templating Ruta'
-        required: true
+        required: false
         type: string
-        default: 'tests/test-templating.py'
+        default: 'tests/tests-templating.py'
 
       spectral-ruleset:
-        description: 'Ruta al fichero ruleset de Spectral'
-        required: true
+        description: 'Ruta al fichero ruleset de Spectral por defecto o fallback'
+        required: false
         type: string
+        default: 'spectral/rules/structure/ruleset.yml'
 
       spectral-files:
         description: 'Lista de ficheros YAML a validar, uno por línea'
@@ -74,19 +75,17 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
-         # token: ${{ secrets.GH_GIT_TOKEN }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_GIT_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: |-
-            pyproject.toml
+          cache-dependency-path: "**/pyproject.toml"
 
       - name: Install Python dependencies
         shell: bash
@@ -94,9 +93,24 @@ jobs:
           set -euo pipefail
 
           python -m pip install --upgrade pip
+          python -m pip install pytest
 
           if [[ -f "pyproject.toml" ]]; then
-            python -m pip install ".[test]"
+            python -m pip install ".[test]" || python -m pip install .
+          elif [[ -f "requirements.txt" ]]; then
+            python -m pip install -r requirements.txt
+          fi
+
+      - name: Verify ruta test file
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test_file="${{ inputs.templating-test }}"
+
+          if [[ ! -f "${test_file}" ]]; then
+            echo "::error file=${test_file}::No existe el fichero de test Ruta en '${test_file}'."
+            exit 1
           fi
 
       - name: Run ruta templating test
@@ -117,14 +131,13 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
-          #token: ${{ secrets.GH_GIT_TOKEN }}
-          token: ${{ github.token }}
+          token: ${{ secrets.GH_GIT_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
           node-version: "22"
 
@@ -135,24 +148,13 @@ jobs:
 
           npm install --no-save @stoplight/spectral-cli
 
-      - name: Verify Spectral ruleset
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          ruleset="${{ inputs.spectral-ruleset }}"
-
-          if [[ ! -f "${ruleset}" ]]; then
-            echo "::error file=${ruleset}::No se ha encontrado el ruleset de Spectral."
-            exit 1
-          fi
-
       - name: Validate YAML files with Spectral
         shell: bash
         run: |
           set -euo pipefail
 
-          ruleset="${{ inputs.spectral-ruleset }}"
+          rules_dir="spectral/rules/structure"
+          default_ruleset="${{ inputs.spectral-ruleset }}"
           files="${{ inputs.spectral-files }}"
 
           while IFS= read -r file; do
@@ -163,9 +165,27 @@ jobs:
               exit 1
             fi
 
-            echo "Validando '${file}' con el ruleset '${ruleset}'..."
+            # Determina la regla a aplicar basándose en el nombre base del archivo
+            base_name=$(basename "${file}" | cut -d. -f1)
+            target_ruleset=""
+
+            if [[ -f "${rules_dir}/${base_name}.yaml" ]]; then
+              target_ruleset="${rules_dir}/${base_name}.yaml"
+            elif [[ -f "${rules_dir}/${base_name}.yml" ]]; then
+              target_ruleset="${rules_dir}/${base_name}.yml"
+            elif [[ -f "${default_ruleset}" ]]; then
+              target_ruleset="${default_ruleset}"
+            fi
+
+            if [[ -z "${target_ruleset}" ]]; then
+              echo "::error file=${file}::No se encontró un fichero de reglas específico en '${rules_dir}/${base_name}.yaml' ni un ruleset por defecto en '${default_ruleset}'."
+              exit 1
+            fi
+
+            echo "Validando '${file}' con el ruleset '${target_ruleset}'..."
 
             npx --no-install spectral lint \
-              --ruleset "${ruleset}" \
+              --ruleset "${target_ruleset}" \
+              --fail-severity=error \
               "${file}"
           done <<< "${files}"
