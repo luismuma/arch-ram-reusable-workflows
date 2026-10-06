@@ -151,14 +151,62 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '18.19.1'
 
       - name: Install Spectral CLI
         shell: bash
         run: |
           set -euo pipefail
 
-          npm install --no-save @stoplight/spectral-cli
+          npm install --no-save @stoplight/spectral-cli@6.15.0
+
+      - name: Verify configuration files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "================================================"
+          echo "Comprobando ficheros de configuración"
+          echo "================================================"
+
+          files=(
+            "config-CDC/db-connections/db-connections-oracle.yml"
+            "config-CDC/target-connections/kafka.yml"
+            "config-CDC/application/cdc_input_json_content.json"
+          )
+
+          for file in "${files[@]}"; do
+            if [[ ! -f "${file}" ]]; then
+              echo "::error file=${file}::No existe el fichero."
+              exit 1
+            fi
+
+            echo "OK: ${file}"
+          done
+
+      - name: Verify Spectral rules
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "================================================"
+          echo "Comprobando reglas de Spectral"
+          echo "================================================"
+
+          rules=(
+            "spectral/rules/structure/db_connections.yaml"
+            "spectral/rules/structure/kafka.yaml"
+            "spectral/rules/structure/application.yaml"
+          )
+
+          for rule in "${rules[@]}"; do
+            if [[ ! -f "${rule}" ]]; then
+              echo "::error file=${rule}::No existe la regla de Spectral."
+              exit 1
+            fi
+
+            echo "OK: ${rule}"
+          done
 
       - name: Validate DB Connections Structure
         shell: bash
@@ -170,7 +218,7 @@ jobs:
           echo "================================================"
 
           npx --no-install spectral lint \
-            configuracion/db_connections.yaml \
+            config-CDC/db-connections/db-connections-oracle.yml \
             --ruleset spectral/rules/structure/db_connections.yaml \
             --verbose
 
@@ -188,7 +236,7 @@ jobs:
           echo "================================================"
 
           npx --no-install spectral lint \
-            configuracion/kafka.yaml \
+            config-CDC/target-connections/kafka.yml \
             --ruleset spectral/rules/structure/kafka.yaml \
             --verbose
 
@@ -206,7 +254,7 @@ jobs:
           echo "================================================"
 
           npx --no-install spectral lint \
-            configuracion/application.json \
+            config-CDC/application/cdc_input_json_content.json \
             --ruleset spectral/rules/structure/application.yaml \
             --verbose
 
