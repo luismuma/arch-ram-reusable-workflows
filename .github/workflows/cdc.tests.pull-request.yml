@@ -131,4 +131,51 @@ jobs:
       PLATFORM_TOKEN: ${{ needs.token-generate.outputs.platform-token }}
       GH_TOKEN_ENCRYPTION_PASSPHRASE: ${{ secrets.GH_TOKEN_ENCRYPTION_PASSPHRASE }}
 
+    # Log final con información de la ejecución y duración total.
+  log-final:
+    needs: [log-inicio, token-generate, pull-request, revoke-tokens]
+    if: always()
+    runs-on: ubuntu-latest
 
+    steps:
+      - name: Log final de ejecución
+        run: |
+          end_time=$(date +%s)
+          start_time="${{ needs.log-inicio.outputs.start-time }}"
+
+          if [ -n "$start_time" ] && [ "$start_time" != "null" ]; then
+            duration=$((end_time - start_time))
+            duration_minutes=$((duration / 60))
+            duration_seconds=$((duration % 60))
+          else
+            duration="N/A"
+            duration_minutes="N/A"
+            duration_seconds="N/A"
+          fi
+
+          echo "============================================================"
+          echo "🏁 FIN DE LA EJECUCIÓN DEL WORKFLOW"
+          echo "============================================================"
+          echo "📦 Repositorio: ${{ github.repository }}"
+          echo "👤 Usuario: ${{ github.actor }}"
+          echo "🔢 Pull Request: #${{ github.event.pull_request.number }}"
+          echo "🌿 Rama origen: ${{ github.event.pull_request.head.ref }}"
+          echo "🎯 Rama destino: ${{ github.event.pull_request.base.ref }}"
+          echo "🔗 Commit: ${{ github.sha }}"
+          echo ""
+          echo "📅 Fecha y hora de finalización UTC: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "🕒 Hora local del runner: $(date +'%Y-%m-%d %H:%M:%S %Z')"
+          echo ""
+          echo "📊 RESULTADO DE LOS JOBS"
+          echo "------------------------------------------------------------"
+          echo "🔐 token-generate : ${{ needs.token-generate.result }}"
+          echo "🔎 pull-request   : ${{ needs.pull-request.result }}"
+          echo "🔓 revoke-tokens  : ${{ needs.revoke-tokens.result }}"
+          echo ""
+          echo "⏱️ DURACIÓN TOTAL"
+          echo "------------------------------------------------------------"
+          echo "🕐 Timestamp inicio : $start_time"
+          echo "🕐 Timestamp fin    : $end_time"
+          echo "⏱️ Duración         : ${duration} segundos"
+          echo "⏱️ Duración         : ${duration_minutes} minutos y ${duration_seconds} segundos"
+          echo "============================================================"
