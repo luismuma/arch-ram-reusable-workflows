@@ -45,10 +45,27 @@ jobs:
       contains(github.event.pull_request.head.ref, 'feature/') ||
       contains(github.event.pull_request.head.ref, 'hotfix/')
     runs-on: ubuntu-latest
+    outputs:
+      start-time: ${{ steps.start.outputs.start_time }}
 
     steps:
-      - name: Imprimir mensaje por pantalla
-        run: echo "🚀 Iniciando la generación de tokens centralizados..."
+      - name: Log de inicio
+        id: start
+        run: |
+          echo "🚀 Iniciando la generación de tokens centralizados..."
+          echo "👤 Usuario que ejecuta: ${{ github.actor }}"
+          echo "📅 Fecha y hora UTC: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "🕒 Hora local del runner: $(date +'%Y-%m-%d %H:%M:%S %Z')"
+          echo "🌿 Rama origen: ${{ github.event.pull_request.head.ref }}"
+          echo "🎯 Rama destino: ${{ github.event.pull_request.base.ref }}"
+          echo "📦 Repositorio: ${{ github.repository }}"
+          echo "🔢 Pull Request: #${{ github.event.pull_request.number }}"
+          echo "🔗 Commit: ${{ github.sha }}"
+          echo "🏃 Runner: ${{ runner.os }}"
+          echo "🕐 Timestamp de inicio: $(date +%s)"
+
+          start_time=$(date +%s)
+          echo "start_time=$start_time" >> "$GITHUB_OUTPUT"
 
   # Genera tokens centralizados únicamente para ramas feature/* y hotfix/*
   token-generate:
